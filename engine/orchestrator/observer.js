@@ -1,4 +1,4 @@
-import { appendHistoryEntry, loadState, saveState } from "./state_store.js";
+import { loadState, saveState } from "./state_store.js";
 
 export function observe(event) {
   const state = loadState();
@@ -18,12 +18,5 @@ export function observe(event) {
   updatedState.timestamp_observer = timestamp;
 
   saveState(updatedState);
-  appendHistoryEntry({
-    timestamp,
-    source: "observer",
-    event: updatedState.last_event,
-    state_snapshot: updatedState
-  });
-
   return updatedState;
 }

@@ -148,7 +148,14 @@ Lote 16 migrado:
 
 - validacion de estado en `engine/orchestrator/state_schema.js` (falla rapido ante estado invalido)
 - Decision Engine 2.0: `decideNextStep` ahora devuelve `actions`, `priority`, `reasoning`
-- memoria historica en `runtime/orchestrator/history.log` para decisiones y eventos de observer
+- memoria historica inicial en `runtime/orchestrator/history.log` para decisiones operativas
+
+Lote 17 migrado:
+
+- `decision_table.json` convertido a motor declarativo real (`mode_rules`, `decision_rules`, `default_decision`)
+- Orchestrator evalua reglas externas en lugar de `if/else` para decidir acciones
+- `history.log` formalizado como stream de eventos JSONL con escritor unico (`orchestrator`)
+- `state_schema` ampliado con invariantes de coherencia (`template_actual/template_path`, `decision_actual`, rangos y tipos)
 
 Pendiente:
 

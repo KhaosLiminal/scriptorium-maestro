@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import {
   PROJECT_ROOT,
@@ -10,6 +11,12 @@ import {
   loadState,
   saveState
 } from "./state_store.js";
+
+const DEFAULT_DECISION = {
+  actions: ["generar_pack_preview"],
+  priority: "steady_flow",
+  reasoning: "flujo estable: continuar pack preview"
+};
 
 function asArcFilename(templateActual) {
   const raw = String(templateActual ?? "").trim();
@@ -54,45 +61,117 @@ export function resolveTemplatePath(state, projectRoot = PROJECT_ROOT) {
   throw new Error(`No se pudo resolver template desde estado. Candidatos: ${candidates.join(", ")}`);
 }
 
+function isObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function getPathValue(input, pathExpr) {
+  const segments = String(pathExpr ?? "")
+    .split(".")
+    .map(token => token.trim())
+    .filter(Boolean);
+
+  let current = input;
+  for (const segment of segments) {
+    if (segment === "length" && (Array.isArray(current) || typeof current === "string")) {
+      current = current.length;
+      continue;
+    }
+
+    if (!isObject(current) && !Array.isArray(current)) {
+      return undefined;
+    }
+
+    current = current[segment];
+  }
+
+  return current;
+}
+
+function compareValues(actual, op, expected) {
+  switch (op) {
+    case "eq":
+      return actual === expected;
+    case "neq":
+      return actual !== expected;
+    case "gt":
+      return Number(actual) > Number(expected);
+    case "gte":
+      return Number(actual) >= Number(expected);
+    case "lt":
+      return Number(actual) < Number(expected);
+    case "lte":
+      return Number(actual) <= Number(expected);
+    case "includes":
+      if (Array.isArray(actual)) return actual.includes(expected);
+      if (typeof actual === "string") return actual.includes(String(expected));
+      return false;
+    case "exists":
+      return actual !== undefined && actual !== null;
+    case "not_exists":
+      return actual === undefined || actual === null;
+    default:
+      return false;
+  }
+}
+
+function matchesCondition(state, condition) {
+  if (!isObject(condition)) return false;
+
+  if (Array.isArray(condition.all)) {
+    return condition.all.every(item => matchesCondition(state, item));
+  }
+
+  if (Array.isArray(condition.any)) {
+    return condition.any.some(item => matchesCondition(state, item));
+  }
+
+  if (condition.not) {
+    return !matchesCondition(state, condition.not);
+  }
+
+  if (typeof condition.path !== "string") return false;
+  const actual = getPathValue(state, condition.path);
+  return compareValues(actual, condition.op ?? "eq", condition.value);
+}
+
+function normalizeDecision(decisionLike) {
+  const actions = Array.isArray(decisionLike?.actions)
+    ? decisionLike.actions
+        .map(item => String(item ?? "").trim())
+        .filter(Boolean)
+    : [];
+
+  return {
+    actions,
+    priority: String(decisionLike?.priority ?? "unspecified"),
+    reasoning: String(decisionLike?.reasoning ?? "sin razon declarada")
+  };
+}
+
 export function evaluateMode(state, rules) {
-  const hasPendingLayers = (state?.ciclope?.capas_pendientes ?? []).length > 0;
-  if (hasPendingLayers && state?.modo === "produccion") {
-    return "produccion_limitada";
+  const modeRules = Array.isArray(rules?.mode_rules) ? rules.mode_rules : [];
+
+  for (const modeRule of modeRules) {
+    if (matchesCondition(state, modeRule?.when)) {
+      const candidateMode = String(modeRule?.set_modo ?? "").trim();
+      if (candidateMode) return candidateMode;
+    }
   }
 
   return state.modo;
 }
 
-export function decideNextStep(state) {
-  if ((state?.estado_media?.faltante ?? 0) > 0) {
-    return {
-      actions: ["resolver_media"],
-      priority: "media_missing",
-      reasoning: "faltante > 0"
-    };
+export function decideNextStep(state, rules) {
+  const decisionRules = Array.isArray(rules?.decision_rules) ? rules.decision_rules : [];
+
+  for (const decisionRule of decisionRules) {
+    if (matchesCondition(state, decisionRule?.when)) {
+      return normalizeDecision(decisionRule?.decision);
+    }
   }
 
-  if ((state?.ciclope?.capas_pendientes ?? []).length > 0) {
-    return {
-      actions: ["generar_pack_preview"],
-      priority: "media_ready",
-      reasoning: "no faltante + ciclope con capas pendientes"
-    };
-  }
-
-  if ((state?.saturacion ?? 0) > 0.7) {
-    return {
-      actions: ["expandir_templates"],
-      priority: "saturation_high",
-      reasoning: "saturacion > 0.7"
-    };
-  }
-
-  return {
-    actions: ["generar_pack_preview"],
-    priority: "steady_flow",
-    reasoning: "flujo estable: continuar pack preview"
-  };
+  return normalizeDecision(rules?.default_decision ?? DEFAULT_DECISION);
 }
 
 function runRunner(templatePath) {
@@ -125,40 +204,76 @@ function getPrimaryAction(decision) {
   return decision.actions[0];
 }
 
-function executeAction(decision, state) {
+function executeAction(decision, state, runId) {
   const nextStep = getPrimaryAction(decision);
+  const startedAt = new Date().toISOString();
+
+  appendHistoryEntry({
+    event_id: randomUUID(),
+    run_id: runId,
+    event_type: "action.started",
+    source: "orchestrator",
+    timestamp: startedAt,
+    payload: { action: nextStep }
+  });
+
   try {
+    if (!nextStep) {
+      appendHistoryEntry({
+        event_id: randomUUID(),
+        run_id: runId,
+        event_type: "action.skipped",
+        source: "orchestrator",
+        timestamp: new Date().toISOString(),
+        payload: { reason: "sin accion declarada" }
+      });
+      return;
+    }
+
     if (nextStep === "generar_pack_preview") {
       const templatePath = resolveTemplatePath(state, PROJECT_ROOT);
       runRunner(templatePath);
-      return;
-    }
-
-    if (nextStep === "continuar_ciclope") {
+    } else if (nextStep === "continuar_ciclope") {
       console.log("Ciclope pendiente; se omite runner");
-      return;
-    }
-
-    if (nextStep === "resolver_media") {
+    } else if (nextStep === "resolver_media") {
       runHydrateMedia();
-      return;
-    }
-
-    if (nextStep === "expandir_templates") {
+    } else if (nextStep === "expandir_templates") {
       console.log("expandir_templates: pendiente de implementar");
     }
+
+    appendHistoryEntry({
+      event_id: randomUUID(),
+      run_id: runId,
+      event_type: "action.completed",
+      source: "orchestrator",
+      timestamp: new Date().toISOString(),
+      payload: { action: nextStep }
+    });
   } catch (error) {
+    appendHistoryEntry({
+      event_id: randomUUID(),
+      run_id: runId,
+      event_type: "action.failed",
+      source: "orchestrator",
+      timestamp: new Date().toISOString(),
+      payload: {
+        action: nextStep,
+        error_message: error instanceof Error ? error.message : String(error)
+      }
+    });
     console.error("Error ejecutando accion del orchestrator");
     console.error(error);
   }
 }
 
 export function runOrchestrator() {
+  const runId = randomUUID();
   const state = loadState();
   const rules = loadJson(DECISION_PATH);
 
   const newMode = evaluateMode(state, rules);
-  const decision = decideNextStep(state);
+  const stateForDecision = { ...state, modo: newMode };
+  const decision = decideNextStep(stateForDecision, rules);
   const nextStep = getPrimaryAction(decision);
   const timestamp = new Date().toISOString();
 
@@ -172,9 +287,12 @@ export function runOrchestrator() {
 
   saveState(updatedState);
   appendHistoryEntry({
+    event_id: randomUUID(),
+    run_id: runId,
+    event_type: "decision.made",
     timestamp,
     source: "orchestrator",
-    decision,
+    payload: { decision },
     state_snapshot: updatedState
   });
 
@@ -185,7 +303,7 @@ export function runOrchestrator() {
   console.log("Prioridad:", decision.priority);
   console.log("Razon:", decision.reasoning);
 
-  executeAction(decision, updatedState);
+  executeAction(decision, updatedState, runId);
 
   return updatedState;
 }

@@ -60,6 +60,26 @@ export function saveState(state) {
 }
 
 export function appendHistoryEntry(entry) {
+  if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+    throw new Error("History entry invalida: objeto requerido");
+  }
+
+  if (typeof entry.event_id !== "string" || !entry.event_id.trim()) {
+    throw new Error("History entry invalida: event_id requerido");
+  }
+
+  if (typeof entry.event_type !== "string" || !entry.event_type.trim()) {
+    throw new Error("History entry invalida: event_type requerido");
+  }
+
+  if (typeof entry.source !== "string" || !entry.source.trim()) {
+    throw new Error("History entry invalida: source requerido");
+  }
+
+  if (typeof entry.timestamp !== "string" || Number.isNaN(Date.parse(entry.timestamp))) {
+    throw new Error("History entry invalida: timestamp ISO requerido");
+  }
+
   fs.mkdirSync(path.dirname(HISTORY_LOG_PATH), { recursive: true });
   fs.appendFileSync(HISTORY_LOG_PATH, `${JSON.stringify(entry)}\n`, "utf8");
 }
