@@ -157,6 +157,18 @@ Lote 17 migrado:
 - `history.log` formalizado como stream de eventos JSONL con escritor unico (`orchestrator`)
 - `state_schema` ampliado con invariantes de coherencia (`template_actual/template_path`, `decision_actual`, rangos y tipos)
 
+Lote 18 migrado:
+
+- migrador de `history.log` legacy a eventos normalizados en `tools/migrate_orchestrator_history_log.mjs`
+- comando `npm run migrate:history` con soporte `--dry-run` y backup automatico
+- prueba dedicada `tests/history_migration_check.mjs`
+
+Lote 19 migrado:
+
+- verificacion de integridad de eventos historicos en `tools/history_integrity_check.mjs`
+- comando `npm run test:history-integrity` integrado al `health:check` y a CI
+- cobertura de pruebas para integridad en `tests/history_integrity_check.mjs`
+
 Pendiente:
 
 - hidratación real de media aún ausente:

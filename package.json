@@ -28,7 +28,10 @@
     "run:arc": "node engine/runner/index.js",
     "orchestrate": "node engine/orchestrator/orchestrator.js",
     "test:orchestrator": "node tests/orchestrator_decision_check.mjs",
-    "health:check": "npm run test:runtime-guard && npm run test:parser && npm run test:runner && npm run test:orchestrator && npm run test:media-replacements && npm run test:placeholder-preview",
+    "test:history-integrity": "node tools/history_integrity_check.mjs",
+    "test:history-migration": "node tests/history_migration_check.mjs",
+    "migrate:history": "node tools/migrate_orchestrator_history_log.mjs",
+    "health:check": "npm run test:runtime-guard && npm run test:history-integrity && npm run test:parser && npm run test:runner && npm run test:orchestrator && npm run test:media-replacements && npm run test:placeholder-preview",
     "test:runtime-guard": "node tools/runtime_guard_check.mjs"
   }
 }

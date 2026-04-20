@@ -16,6 +16,7 @@ jobs:
           node-version: '20'
       - run: npm install
       - run: npm run test:runtime-guard
+      - run: npm run test:history-integrity
       - run: npm run test:parser
       - run: npm run test:runner
       - run: npm run test:media-replacements

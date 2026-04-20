@@ -58,3 +58,26 @@ El observer no decide acciones; solo registra hechos.
 ```
 
 La seleccion se hace evaluando `decision_table.json`, no con `if/else` hardcodeados.
+
+## Migracion de historia legacy
+
+Comando:
+
+```powershell
+npm run migrate:history
+```
+
+Opcional:
+- `-- --dry-run` para simular sin escribir
+- `-- --no-backup` para omitir backup
+- `-- --file <ruta>` para archivo alterno
+
+## Integridad de historia
+
+Comando:
+
+```powershell
+npm run test:history-integrity
+```
+
+Valida que cada evento en `history.log` cumpla el contrato (`event_id`, `run_id`, `event_type`, `source`, `timestamp`, `payload`).
