@@ -21,6 +21,8 @@ const rules = {
   decision_rules: [
     {
       when: { all: [{ path: "estado_media.faltante", op: "gt", value: 0 }] },
+      id: "media_faltante",
+      weight: 0.95,
       decision: {
         actions: ["resolver_media"],
         priority: "media_missing",
@@ -28,6 +30,8 @@ const rules = {
       }
     },
     {
+      id: "preview_con_capas_pendientes",
+      weight: 0.7,
       when: {
         all: [
           { path: "estado_media.faltante", op: "eq", value: 0 },
@@ -41,6 +45,8 @@ const rules = {
       }
     },
     {
+      id: "saturacion_alta",
+      weight: 0.6,
       when: {
         all: [
           { path: "estado_media.faltante", op: "eq", value: 0 },
@@ -58,7 +64,8 @@ const rules = {
   default_decision: {
     actions: ["generar_pack_preview"],
     priority: "steady_flow",
-    reasoning: "flujo estable: continuar pack preview"
+    reasoning: "flujo estable: continuar pack preview",
+    weight: 0.2
   }
 };
 
@@ -98,7 +105,9 @@ assert.deepEqual(
   {
     actions: ["resolver_media"],
     priority: "media_missing",
-    reasoning: "faltante > 0"
+    reasoning: "faltante > 0",
+    rule_id: "media_faltante",
+    score: 0.95
   }
 );
 
@@ -115,7 +124,9 @@ assert.deepEqual(
   {
     actions: ["generar_pack_preview"],
     priority: "media_ready",
-    reasoning: "no faltante + ciclope con capas pendientes"
+    reasoning: "no faltante + ciclope con capas pendientes",
+    rule_id: "preview_con_capas_pendientes",
+    score: 0.7
   }
 );
 
@@ -132,7 +143,9 @@ assert.deepEqual(
   {
     actions: ["expandir_templates"],
     priority: "saturation_high",
-    reasoning: "saturacion > 0.7"
+    reasoning: "saturacion > 0.7",
+    rule_id: "saturacion_alta",
+    score: 0.6
   }
 );
 
@@ -149,7 +162,9 @@ assert.deepEqual(
   {
     actions: ["generar_pack_preview"],
     priority: "steady_flow",
-    reasoning: "flujo estable: continuar pack preview"
+    reasoning: "flujo estable: continuar pack preview",
+    rule_id: "default",
+    score: 0.2
   }
 );
 
@@ -168,7 +183,9 @@ assert.throws(
       decision_actual: {
         actions: ["generar_pack_preview"],
         priority: "steady_flow",
-        reasoning: "test"
+        reasoning: "test",
+        rule_id: "default",
+        score: 0.2
       }
     }),
   /invariante rota/

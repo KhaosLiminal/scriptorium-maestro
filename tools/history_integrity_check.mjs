@@ -48,6 +48,12 @@ export function validateHistoryEntry(entry, lineNumber) {
   assertEntry(isNonEmptyString(entry.event_type), "event_type requerido", lineNumber);
   assertEntry(isNonEmptyString(entry.source), "source requerido", lineNumber);
   assertEntry(isNonEmptyString(entry.timestamp), "timestamp requerido", lineNumber);
+  assertEntry(isNonEmptyString(entry.correlation_id), "correlation_id requerido", lineNumber);
+  assertEntry(
+    entry.caused_by === null || isNonEmptyString(entry.caused_by),
+    "caused_by debe ser null o event_id string",
+    lineNumber
+  );
   assertEntry(!Number.isNaN(Date.parse(entry.timestamp)), "timestamp debe ser ISO valido", lineNumber);
   assertEntry(isObject(entry.payload), "payload debe ser objeto", lineNumber);
 

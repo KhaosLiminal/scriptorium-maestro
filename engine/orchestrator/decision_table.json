@@ -14,6 +14,7 @@
   "decision_rules": [
     {
       "id": "media_faltante",
+      "weight": 0.95,
       "when": {
         "all": [
           { "path": "estado_media.faltante", "op": "gt", "value": 0 }
@@ -27,6 +28,7 @@
     },
     {
       "id": "preview_con_capas_pendientes",
+      "weight": 0.7,
       "when": {
         "all": [
           { "path": "estado_media.faltante", "op": "eq", "value": 0 },
@@ -41,6 +43,7 @@
     },
     {
       "id": "saturacion_alta",
+      "weight": 0.6,
       "when": {
         "all": [
           { "path": "estado_media.faltante", "op": "eq", "value": 0 },
@@ -58,6 +61,7 @@
   "default_decision": {
     "actions": ["generar_pack_preview"],
     "priority": "steady_flow",
-    "reasoning": "flujo estable: continuar pack preview"
+    "reasoning": "flujo estable: continuar pack preview",
+    "weight": 0.2
   }
 }

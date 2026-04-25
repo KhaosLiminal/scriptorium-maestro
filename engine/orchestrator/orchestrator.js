@@ -11,11 +11,14 @@ import {
   loadState,
   saveState
 } from "./state_store.js";
+import { maybeWriteSnapshot } from "./event_sourcing_layer.js";
 
 const DEFAULT_DECISION = {
   actions: ["generar_pack_preview"],
   priority: "steady_flow",
-  reasoning: "flujo estable: continuar pack preview"
+  reasoning: "flujo estable: continuar pack preview",
+  rule_id: "default",
+  score: 0
 };
 
 function asArcFilename(templateActual) {
@@ -135,7 +138,7 @@ function matchesCondition(state, condition) {
   return compareValues(actual, condition.op ?? "eq", condition.value);
 }
 
-function normalizeDecision(decisionLike) {
+function normalizeDecision(decisionLike, metadata = {}) {
   const actions = Array.isArray(decisionLike?.actions)
     ? decisionLike.actions
         .map(item => String(item ?? "").trim())
@@ -145,7 +148,9 @@ function normalizeDecision(decisionLike) {
   return {
     actions,
     priority: String(decisionLike?.priority ?? "unspecified"),
-    reasoning: String(decisionLike?.reasoning ?? "sin razon declarada")
+    reasoning: String(decisionLike?.reasoning ?? "sin razon declarada"),
+    rule_id: metadata.ruleId ?? String(decisionLike?.rule_id ?? "unspecified"),
+    score: Number.isFinite(metadata.score) ? Number(metadata.score) : Number(decisionLike?.score ?? 0)
   };
 }
 
@@ -164,14 +169,38 @@ export function evaluateMode(state, rules) {
 
 export function decideNextStep(state, rules) {
   const decisionRules = Array.isArray(rules?.decision_rules) ? rules.decision_rules : [];
+  const matches = [];
 
-  for (const decisionRule of decisionRules) {
-    if (matchesCondition(state, decisionRule?.when)) {
-      return normalizeDecision(decisionRule?.decision);
-    }
+  for (let i = 0; i < decisionRules.length; i += 1) {
+    const decisionRule = decisionRules[i];
+    if (!matchesCondition(state, decisionRule?.when)) continue;
+
+    const weight = Number.isFinite(decisionRule?.weight) ? Number(decisionRule.weight) : 0;
+    matches.push({
+      index: i,
+      rule: decisionRule,
+      score: weight
+    });
   }
 
-  return normalizeDecision(rules?.default_decision ?? DEFAULT_DECISION);
+  if (matches.length > 0) {
+    matches.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.index - b.index;
+    });
+
+    const winner = matches[0];
+    const ruleId = String(winner.rule?.id ?? `rule_${winner.index + 1}`);
+    return normalizeDecision(winner.rule?.decision, {
+      ruleId,
+      score: winner.score
+    });
+  }
+
+  return normalizeDecision(rules?.default_decision ?? DEFAULT_DECISION, {
+    ruleId: "default",
+    score: Number.isFinite(rules?.default_decision?.weight) ? Number(rules.default_decision.weight) : 0
+  });
 }
 
 function runRunner(templatePath) {
@@ -204,24 +233,17 @@ function getPrimaryAction(decision) {
   return decision.actions[0];
 }
 
-function executeAction(decision, state, runId) {
+function executeAction(decision, state, runId, causedByEventId) {
   const nextStep = getPrimaryAction(decision);
-  const startedAt = new Date().toISOString();
-
-  appendHistoryEntry({
-    event_id: randomUUID(),
-    run_id: runId,
-    event_type: "action.started",
-    source: "orchestrator",
-    timestamp: startedAt,
-    payload: { action: nextStep }
-  });
+  let startedEventId = null;
 
   try {
     if (!nextStep) {
       appendHistoryEntry({
         event_id: randomUUID(),
         run_id: runId,
+        correlation_id: runId,
+        caused_by: causedByEventId ?? null,
         event_type: "action.skipped",
         source: "orchestrator",
         timestamp: new Date().toISOString(),
@@ -229,6 +251,18 @@ function executeAction(decision, state, runId) {
       });
       return;
     }
+
+    startedEventId = randomUUID();
+    appendHistoryEntry({
+      event_id: startedEventId,
+      run_id: runId,
+      correlation_id: runId,
+      caused_by: causedByEventId ?? null,
+      event_type: "action.started",
+      source: "orchestrator",
+      timestamp: new Date().toISOString(),
+      payload: { action: nextStep }
+    });
 
     if (nextStep === "generar_pack_preview") {
       const templatePath = resolveTemplatePath(state, PROJECT_ROOT);
@@ -244,6 +278,8 @@ function executeAction(decision, state, runId) {
     appendHistoryEntry({
       event_id: randomUUID(),
       run_id: runId,
+      correlation_id: runId,
+      caused_by: startedEventId,
       event_type: "action.completed",
       source: "orchestrator",
       timestamp: new Date().toISOString(),
@@ -253,6 +289,8 @@ function executeAction(decision, state, runId) {
     appendHistoryEntry({
       event_id: randomUUID(),
       run_id: runId,
+      correlation_id: runId,
+      caused_by: startedEventId ?? causedByEventId ?? null,
       event_type: "action.failed",
       source: "orchestrator",
       timestamp: new Date().toISOString(),
@@ -286,9 +324,12 @@ export function runOrchestrator() {
   };
 
   saveState(updatedState);
+  const decisionEventId = randomUUID();
   appendHistoryEntry({
-    event_id: randomUUID(),
+    event_id: decisionEventId,
     run_id: runId,
+    correlation_id: runId,
+    caused_by: null,
     event_type: "decision.made",
     timestamp,
     source: "orchestrator",
@@ -301,9 +342,21 @@ export function runOrchestrator() {
   console.log("Modo:", newMode);
   console.log("Siguiente paso:", nextStep ?? "sin_accion");
   console.log("Prioridad:", decision.priority);
+  console.log("Regla:", decision.rule_id);
+  console.log("Score:", decision.score);
   console.log("Razon:", decision.reasoning);
 
-  executeAction(decision, updatedState, runId);
+  executeAction(decision, updatedState, runId, decisionEventId);
+
+  try {
+    const snapshotInterval = Number.parseInt(process.env.ORCHESTRATOR_SNAPSHOT_INTERVAL ?? "10", 10);
+    const result = maybeWriteSnapshot({ interval: Number.isFinite(snapshotInterval) ? snapshotInterval : 10 });
+    if (result.status === "written") {
+      console.log("Snapshot:", result.snapshotPath);
+    }
+  } catch (error) {
+    console.warn("Snapshot warning:", error instanceof Error ? error.message : String(error));
+  }
 
   return updatedState;
 }

@@ -24,6 +24,10 @@ function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
 function isIsoDate(value) {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
 }
@@ -67,6 +71,8 @@ function normalizeLegacyEntry(entry, index) {
   const normalized = {
     event_id: randomUUID(),
     run_id: `legacy-run-${index + 1}`,
+    correlation_id: `legacy-run-${index + 1}`,
+    caused_by: null,
     event_type: eventType,
     source,
     timestamp,
@@ -80,12 +86,54 @@ function normalizeLegacyEntry(entry, index) {
   return normalized;
 }
 
+function enrichCausality(events) {
+  const enrichedEvents = [];
+  const lastEventByCorrelation = new Map();
+  let enrichedCount = 0;
+
+  for (let i = 0; i < events.length; i += 1) {
+    const event = events[i];
+    const correlationId = isNonEmptyString(event?.correlation_id)
+      ? event.correlation_id
+      : isNonEmptyString(event?.run_id)
+        ? event.run_id
+        : `corr-${i + 1}`;
+
+    if (!isNonEmptyString(event?.correlation_id)) enrichedCount += 1;
+
+    let causedBy = event?.caused_by;
+    if (causedBy === undefined || (causedBy !== null && !isNonEmptyString(causedBy))) {
+      if (event?.event_type === "decision.made") {
+        causedBy = null;
+      } else {
+        causedBy = lastEventByCorrelation.get(correlationId) ?? null;
+      }
+      enrichedCount += 1;
+    }
+
+    const enriched = {
+      ...event,
+      correlation_id: correlationId,
+      caused_by: causedBy
+    };
+
+    enrichedEvents.push(enriched);
+
+    if (isNonEmptyString(enriched.event_id)) {
+      lastEventByCorrelation.set(correlationId, enriched.event_id);
+    }
+  }
+
+  return { events: enrichedEvents, enrichedCount };
+}
+
 export function migrateHistoryLines(lines) {
-  const migrated = [];
+  const migratedRaw = [];
   const stats = {
     total: 0,
     normalized_kept: 0,
-    legacy_converted: 0
+    legacy_converted: 0,
+    causal_enriched: 0
   };
 
   for (const [index, line] of lines.entries()) {
@@ -101,16 +149,19 @@ export function migrateHistoryLines(lines) {
     }
 
     if (isNormalizedEvent(parsed)) {
-      migrated.push(parsed);
+      migratedRaw.push(parsed);
       stats.normalized_kept += 1;
       continue;
     }
 
-    migrated.push(normalizeLegacyEntry(parsed, index));
+    migratedRaw.push(normalizeLegacyEntry(parsed, index));
     stats.legacy_converted += 1;
   }
 
-  return { migrated, stats };
+  const causality = enrichCausality(migratedRaw);
+  stats.causal_enriched = causality.enrichedCount;
+
+  return { migrated: causality.events, stats };
 }
 
 function parseArgs(argv) {
@@ -191,6 +242,7 @@ function runCli() {
   console.log("Total entries:", result.stats.total);
   console.log("Normalized kept:", result.stats.normalized_kept);
   console.log("Legacy converted:", result.stats.legacy_converted);
+  console.log("Causal enriched:", result.stats.causal_enriched);
   console.log("Changed:", result.changed ? "yes" : "no");
   console.log("Dry run:", args.dryRun ? "yes" : "no");
   if (result.backupPath) {

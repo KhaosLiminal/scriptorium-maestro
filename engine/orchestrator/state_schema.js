@@ -52,7 +52,9 @@ export const ORCHESTRATOR_STATE_SCHEMA = {
       properties: {
         actions: { type: "array" },
         priority: { type: "string" },
-        reasoning: { type: "string" }
+        reasoning: { type: "string" },
+        rule_id: { type: "string" },
+        score: { type: "number" }
       }
     }
   },
@@ -80,6 +82,14 @@ function validateDecision(decision, errors) {
 
   if (!isNonEmptyString(decision.reasoning)) {
     errors.push("decision_actual.reasoning requerido (string no vacio)");
+  }
+
+  if (decision.rule_id !== undefined && !isNonEmptyString(decision.rule_id)) {
+    errors.push("decision_actual.rule_id invalido (string no vacio)");
+  }
+
+  if (decision.score !== undefined && !Number.isFinite(decision.score)) {
+    errors.push("decision_actual.score invalido (numero)");
   }
 };
 

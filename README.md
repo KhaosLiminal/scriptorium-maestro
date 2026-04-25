@@ -169,6 +169,14 @@ Lote 19 migrado:
 - comando `npm run test:history-integrity` integrado al `health:check` y a CI
 - cobertura de pruebas para integridad en `tests/history_integrity_check.mjs`
 
+Lote 20 migrado:
+
+- capa `event_sourcing_layer.js` con `rebuildStateFromHistory` y chequeo `state === fold(history)`
+- nuevos comandos `test:event-sourcing-layer` y `test:event-sourcing-consistency` (integrados en CI y `health:check`)
+- causalidad explicita en eventos (`correlation_id`, `caused_by`) desde orchestrator
+- decision engine con scoring por `weight` + traza de regla ganadora (`rule_id`, `score`)
+- estrategia de snapshot periodico (`runtime/orchestrator/snapshot.json`) via `maybeWriteSnapshot`
+
 Pendiente:
 
 - hidratación real de media aún ausente:

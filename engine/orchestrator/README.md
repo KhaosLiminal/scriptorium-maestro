@@ -10,6 +10,7 @@
 - `state_schema.js`: validacion minima del estado (`modo`, `ciclope`, `estado_media`).
 - `state.seed.json`: snapshot canonic para bootstrap.
 - `state_store.js`: acceso unificado al estado runtime.
+- `event_sourcing_layer.js`: reconstruccion de estado desde eventos y snapshots periodicos.
 
 ## Regla de oro aplicada
 
@@ -53,11 +54,13 @@ El observer no decide acciones; solo registra hechos.
 {
   "actions": ["generar_pack_preview"],
   "priority": "media_ready",
-  "reasoning": "no faltante + ciclope con capas pendientes"
+  "reasoning": "no faltante + ciclope con capas pendientes",
+  "rule_id": "preview_con_capas_pendientes",
+  "score": 0.7
 }
 ```
 
-La seleccion se hace evaluando `decision_table.json`, no con `if/else` hardcodeados.
+La seleccion se hace evaluando `decision_table.json` con `weight` por regla, no con `if/else` hardcodeados.
 
 ## Migracion de historia legacy
 
@@ -81,3 +84,15 @@ npm run test:history-integrity
 ```
 
 Valida que cada evento en `history.log` cumpla el contrato (`event_id`, `run_id`, `event_type`, `source`, `timestamp`, `payload`).
+Tambien exige causalidad explicita (`correlation_id`, `caused_by`).
+
+## Consistencia event sourcing
+
+Comandos:
+
+```powershell
+npm run test:event-sourcing-consistency
+npm run test:event-sourcing-layer
+```
+
+Garantiza `state.json === fold(history.log)` y valida la capa de reconstruccion.

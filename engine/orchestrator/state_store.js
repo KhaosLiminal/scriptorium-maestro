@@ -22,6 +22,7 @@ function findProjectRoot(startPath = __dirname) {
 export const PROJECT_ROOT = findProjectRoot(__dirname);
 export const STATE_PATH = path.join(PROJECT_ROOT, "runtime", "orchestrator", "state.json");
 export const HISTORY_LOG_PATH = path.join(PROJECT_ROOT, "runtime", "orchestrator", "history.log");
+export const SNAPSHOT_PATH = path.join(PROJECT_ROOT, "runtime", "orchestrator", "snapshot.json");
 export const STATE_SEED_PATH = path.join(PROJECT_ROOT, "engine", "orchestrator", "state.seed.json");
 export const DECISION_PATH = path.join(PROJECT_ROOT, "engine", "orchestrator", "decision_table.json");
 
@@ -72,12 +73,30 @@ export function appendHistoryEntry(entry) {
     throw new Error("History entry invalida: event_type requerido");
   }
 
+  if (typeof entry.run_id !== "string" || !entry.run_id.trim()) {
+    throw new Error("History entry invalida: run_id requerido");
+  }
+
   if (typeof entry.source !== "string" || !entry.source.trim()) {
     throw new Error("History entry invalida: source requerido");
   }
 
   if (typeof entry.timestamp !== "string" || Number.isNaN(Date.parse(entry.timestamp))) {
     throw new Error("History entry invalida: timestamp ISO requerido");
+  }
+
+  if (typeof entry.correlation_id !== "string" || !entry.correlation_id.trim()) {
+    throw new Error("History entry invalida: correlation_id requerido");
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(entry, "caused_by")) {
+    throw new Error("History entry invalida: caused_by requerido (null o event_id)");
+  }
+
+  if (entry.caused_by !== null) {
+    if (typeof entry.caused_by !== "string" || !entry.caused_by.trim()) {
+      throw new Error("History entry invalida: caused_by debe ser string no vacio o null");
+    }
   }
 
   fs.mkdirSync(path.dirname(HISTORY_LOG_PATH), { recursive: true });

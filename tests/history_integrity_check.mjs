@@ -11,6 +11,8 @@ import {
 const validDecision = {
   event_id: "evt-1",
   run_id: "run-1",
+  correlation_id: "run-1",
+  caused_by: null,
   event_type: "decision.made",
   source: "orchestrator",
   timestamp: "2026-04-20T11:00:00.000Z",
@@ -27,6 +29,8 @@ const validDecision = {
 const validAction = {
   event_id: "evt-2",
   run_id: "run-1",
+  correlation_id: "run-1",
+  caused_by: "evt-1",
   event_type: "action.completed",
   source: "orchestrator",
   timestamp: "2026-04-20T11:00:01.000Z",
