@@ -20,6 +20,7 @@ function findProjectRoot(startPath = __dirname) {
 }
 
 export const PROJECT_ROOT = findProjectRoot(__dirname);
+export const EVENT_VERSION_CURRENT = 1;
 export const STATE_PATH = path.join(PROJECT_ROOT, "runtime", "orchestrator", "state.json");
 export const HISTORY_LOG_PATH = path.join(PROJECT_ROOT, "runtime", "orchestrator", "history.log");
 export const SNAPSHOT_PATH = path.join(PROJECT_ROOT, "runtime", "orchestrator", "snapshot.json");
@@ -71,6 +72,10 @@ export function appendHistoryEntry(entry) {
 
   if (typeof entry.event_type !== "string" || !entry.event_type.trim()) {
     throw new Error("History entry invalida: event_type requerido");
+  }
+
+  if (!Number.isInteger(entry.event_version) || entry.event_version < 1) {
+    throw new Error("History entry invalida: event_version requerido (entero >= 1)");
   }
 
   if (typeof entry.run_id !== "string" || !entry.run_id.trim()) {

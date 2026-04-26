@@ -17,6 +17,7 @@ jobs:
       - run: npm install
       - run: npm run test:runtime-guard
       - run: npm run test:history-integrity
+      - run: npm run test:history-projections
       - run: npm run test:event-sourcing-layer
       - run: npm run test:event-sourcing-consistency
       - run: npm run test:parser

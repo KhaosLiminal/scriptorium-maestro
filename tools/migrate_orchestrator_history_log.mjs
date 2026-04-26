@@ -69,6 +69,7 @@ function normalizeLegacyEntry(entry, index) {
   payload.legacy_index = index + 1;
 
   const normalized = {
+    event_version: 1,
     event_id: randomUUID(),
     run_id: `legacy-run-${index + 1}`,
     correlation_id: `legacy-run-${index + 1}`,
@@ -90,9 +91,13 @@ function enrichCausality(events) {
   const enrichedEvents = [];
   const lastEventByCorrelation = new Map();
   let enrichedCount = 0;
+  let versionEnrichedCount = 0;
 
   for (let i = 0; i < events.length; i += 1) {
     const event = events[i];
+    const eventVersion = Number.isInteger(event?.event_version) && event.event_version >= 1 ? event.event_version : 1;
+    if (!Number.isInteger(event?.event_version) || event.event_version < 1) versionEnrichedCount += 1;
+
     const correlationId = isNonEmptyString(event?.correlation_id)
       ? event.correlation_id
       : isNonEmptyString(event?.run_id)
@@ -113,6 +118,7 @@ function enrichCausality(events) {
 
     const enriched = {
       ...event,
+      event_version: eventVersion,
       correlation_id: correlationId,
       caused_by: causedBy
     };
@@ -124,7 +130,7 @@ function enrichCausality(events) {
     }
   }
 
-  return { events: enrichedEvents, enrichedCount };
+  return { events: enrichedEvents, enrichedCount, versionEnrichedCount };
 }
 
 export function migrateHistoryLines(lines) {
@@ -133,7 +139,8 @@ export function migrateHistoryLines(lines) {
     total: 0,
     normalized_kept: 0,
     legacy_converted: 0,
-    causal_enriched: 0
+    causal_enriched: 0,
+    version_enriched: 0
   };
 
   for (const [index, line] of lines.entries()) {
@@ -160,6 +167,7 @@ export function migrateHistoryLines(lines) {
 
   const causality = enrichCausality(migratedRaw);
   stats.causal_enriched = causality.enrichedCount;
+  stats.version_enriched = causality.versionEnrichedCount;
 
   return { migrated: causality.events, stats };
 }
@@ -243,6 +251,7 @@ function runCli() {
   console.log("Normalized kept:", result.stats.normalized_kept);
   console.log("Legacy converted:", result.stats.legacy_converted);
   console.log("Causal enriched:", result.stats.causal_enriched);
+  console.log("Version enriched:", result.stats.version_enriched);
   console.log("Changed:", result.changed ? "yes" : "no");
   console.log("Dry run:", args.dryRun ? "yes" : "no");
   if (result.backupPath) {

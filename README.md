@@ -177,6 +177,14 @@ Lote 20 migrado:
 - decision engine con scoring por `weight` + traza de regla ganadora (`rule_id`, `score`)
 - estrategia de snapshot periodico (`runtime/orchestrator/snapshot.json`) via `maybeWriteSnapshot`
 
+Lote 21 migrado:
+
+- versionado de eventos (`event_version`) + upcasting en lectura de historia
+- `decision_meta` en eventos `decision.made` (regla seleccionada, descartadas, score)
+- proyecciones multiples desde `history.log` (`analytics`, `debug`, `performance`)
+- nuevos comandos `project:history`, `test:history-projections`
+- mapa de continuidad en `docs/MAPA_CONTINUIDAD_ORCHESTRATOR_2026-04-26.md`
+
 Pendiente:
 
 - hidratación real de media aún ausente:

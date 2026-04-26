@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   decideNextStep,
+  decideNextStepWithMeta,
   evaluateMode,
   resolveTemplatePath
 } from "../engine/orchestrator/orchestrator.js";
@@ -110,6 +111,19 @@ assert.deepEqual(
     score: 0.95
   }
 );
+
+const metaProbe = decideNextStepWithMeta(
+  {
+    ...baseState,
+    estado_media: { presente: 4, faltante: 1, placeholder: 0, replacementHints: 0 },
+    ciclope: { capas_pendientes: [], bloqueante: false },
+    saturacion: 0.9
+  },
+  rules
+);
+assert.equal(metaProbe.meta.selected_rule, "media_faltante");
+assert.equal(metaProbe.meta.matched_rules.length >= 1, true);
+assert.equal(Array.isArray(metaProbe.meta.discarded_rules), true);
 
 assert.deepEqual(
   decideNextStep(

@@ -41,6 +41,7 @@ assert.equal(migratedFromLines.stats.total, 2);
 assert.equal(migratedFromLines.stats.legacy_converted, 1);
 assert.equal(migratedFromLines.stats.normalized_kept, 1);
 assert.equal(migratedFromLines.stats.causal_enriched > 0, true);
+assert.equal(migratedFromLines.stats.version_enriched > 0, true);
 assert.equal(migratedFromLines.migrated[0].event_type, "decision.made");
 assert.equal(migratedFromLines.migrated[1].event_id, "evt-1");
 assert.equal(typeof migratedFromLines.migrated[0].correlation_id, "string");
@@ -56,6 +57,7 @@ assert.equal(firstRun.changed, true);
 assert.equal(firstRun.stats.total, 2);
 assert.equal(firstRun.stats.legacy_converted, 1);
 assert.equal(firstRun.stats.causal_enriched > 0, true);
+assert.equal(firstRun.stats.version_enriched > 0, true);
 
 const secondRun = migrateHistoryFile({ filePath, dryRun: false, backup: false });
 assert.equal(secondRun.changed, false);
@@ -63,6 +65,7 @@ assert.equal(secondRun.stats.total, 2);
 assert.equal(secondRun.stats.legacy_converted, 0);
 assert.equal(secondRun.stats.normalized_kept, 2);
 assert.equal(secondRun.stats.causal_enriched, 0);
+assert.equal(secondRun.stats.version_enriched, 0);
 
 const dryRunResult = migrateHistoryFile({ filePath, dryRun: true, backup: true });
 assert.equal(dryRunResult.changed, false);

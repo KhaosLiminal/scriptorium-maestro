@@ -36,6 +36,7 @@ const decisionState = {
 
 const historyEvents = [
   {
+    event_version: 1,
     event_id: "evt-1",
     run_id: "run-1",
     correlation_id: "run-1",
@@ -47,6 +48,7 @@ const historyEvents = [
     state_snapshot: decisionState
   },
   {
+    event_version: 1,
     event_id: "evt-2",
     run_id: "run-1",
     correlation_id: "run-1",
@@ -57,6 +59,7 @@ const historyEvents = [
     payload: { action: "resolver_media" }
   },
   {
+    event_version: 1,
     event_id: "evt-3",
     run_id: "run-1",
     correlation_id: "run-1",

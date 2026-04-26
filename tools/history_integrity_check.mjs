@@ -43,6 +43,7 @@ function validateDecision(decision, lineNumber) {
 
 export function validateHistoryEntry(entry, lineNumber) {
   assertEntry(isObject(entry), "entrada debe ser objeto JSON", lineNumber);
+  assertEntry(Number.isInteger(entry.event_version) && entry.event_version >= 1, "event_version requerido (entero >= 1)", lineNumber);
   assertEntry(isNonEmptyString(entry.event_id), "event_id requerido", lineNumber);
   assertEntry(isNonEmptyString(entry.run_id), "run_id requerido", lineNumber);
   assertEntry(isNonEmptyString(entry.event_type), "event_type requerido", lineNumber);
@@ -64,6 +65,16 @@ export function validateHistoryEntry(entry, lineNumber) {
   if (entry.event_type === "decision.made") {
     validateDecision(entry.payload.decision, lineNumber);
     assertEntry(isObject(entry.state_snapshot), "decision.made requiere state_snapshot", lineNumber);
+
+    if (entry.payload.decision_meta !== undefined) {
+      assertEntry(isObject(entry.payload.decision_meta), "decision_meta debe ser objeto si existe", lineNumber);
+      assertEntry(isNonEmptyString(entry.payload.decision_meta.selected_rule), "decision_meta.selected_rule requerido", lineNumber);
+      assertEntry(
+        Array.isArray(entry.payload.decision_meta.discarded_rules),
+        "decision_meta.discarded_rules debe ser array",
+        lineNumber
+      );
+    }
   }
 
   if (entry.event_type === "action.started" || entry.event_type === "action.completed") {

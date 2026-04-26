@@ -61,6 +61,7 @@ El observer no decide acciones; solo registra hechos.
 ```
 
 La seleccion se hace evaluando `decision_table.json` con `weight` por regla, no con `if/else` hardcodeados.
+Cada decision registra tambien `decision_meta` (regla aplicada, reglas descartadas y scores).
 
 ## Migracion de historia legacy
 
@@ -85,6 +86,7 @@ npm run test:history-integrity
 
 Valida que cada evento en `history.log` cumpla el contrato (`event_id`, `run_id`, `event_type`, `source`, `timestamp`, `payload`).
 Tambien exige causalidad explicita (`correlation_id`, `caused_by`).
+Tambien exige `event_version` para evolucion segura del contrato.
 
 ## Consistencia event sourcing
 
@@ -96,3 +98,16 @@ npm run test:event-sourcing-layer
 ```
 
 Garantiza `state.json === fold(history.log)` y valida la capa de reconstruccion.
+
+## Proyecciones multiples
+
+Comando:
+
+```powershell
+npm run project:history
+```
+
+Genera:
+- `runtime/orchestrator/projections/analytics.json`
+- `runtime/orchestrator/projections/debug.json`
+- `runtime/orchestrator/projections/performance.json`

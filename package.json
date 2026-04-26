@@ -32,8 +32,10 @@
     "test:event-sourcing-consistency": "node tools/event_sourcing_consistency_check.mjs",
     "test:history-integrity": "node tools/history_integrity_check.mjs",
     "test:history-migration": "node tests/history_migration_check.mjs",
+    "test:history-projections": "node tests/history_projections_check.mjs",
     "migrate:history": "node tools/migrate_orchestrator_history_log.mjs",
-    "health:check": "npm run test:runtime-guard && npm run test:history-integrity && npm run test:event-sourcing-layer && npm run test:event-sourcing-consistency && npm run test:parser && npm run test:runner && npm run test:orchestrator && npm run test:media-replacements && npm run test:placeholder-preview",
+    "project:history": "node tools/build_history_projections.mjs",
+    "health:check": "npm run test:runtime-guard && npm run test:history-integrity && npm run test:history-projections && npm run test:event-sourcing-layer && npm run test:event-sourcing-consistency && npm run test:parser && npm run test:runner && npm run test:orchestrator && npm run test:media-replacements && npm run test:placeholder-preview",
     "test:runtime-guard": "node tools/runtime_guard_check.mjs"
   }
 }

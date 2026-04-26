@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import {
+  EVENT_VERSION_CURRENT,
   PROJECT_ROOT,
   DECISION_PATH,
   appendHistoryEntry,
@@ -154,6 +155,26 @@ function normalizeDecision(decisionLike, metadata = {}) {
   };
 }
 
+function buildDecisionMeta({ candidates, selectedRuleId, selectedScore }) {
+  const matchedRules = candidates
+    .filter(item => item.matched)
+    .map(item => ({
+      rule_id: item.ruleId,
+      score: item.score
+    }));
+
+  const discardedRules = candidates
+    .filter(item => !item.matched)
+    .map(item => item.ruleId);
+
+  return {
+    selected_rule: selectedRuleId,
+    selected_score: selectedScore,
+    matched_rules: matchedRules,
+    discarded_rules: discardedRules
+  };
+}
+
 export function evaluateMode(state, rules) {
   const modeRules = Array.isArray(rules?.mode_rules) ? rules.mode_rules : [];
 
@@ -168,39 +189,64 @@ export function evaluateMode(state, rules) {
 }
 
 export function decideNextStep(state, rules) {
+  return decideNextStepWithMeta(state, rules).decision;
+}
+
+export function decideNextStepWithMeta(state, rules) {
   const decisionRules = Array.isArray(rules?.decision_rules) ? rules.decision_rules : [];
-  const matches = [];
+  const candidates = [];
 
   for (let i = 0; i < decisionRules.length; i += 1) {
     const decisionRule = decisionRules[i];
-    if (!matchesCondition(state, decisionRule?.when)) continue;
+    const matched = matchesCondition(state, decisionRule?.when);
 
     const weight = Number.isFinite(decisionRule?.weight) ? Number(decisionRule.weight) : 0;
-    matches.push({
+    candidates.push({
       index: i,
-      rule: decisionRule,
-      score: weight
+      ruleId: String(decisionRule?.id ?? `rule_${i + 1}`),
+      decision: decisionRule?.decision,
+      score: weight,
+      matched
     });
   }
 
-  if (matches.length > 0) {
-    matches.sort((a, b) => {
+  const matchedCandidates = candidates.filter(item => item.matched);
+
+  if (matchedCandidates.length > 0) {
+    matchedCandidates.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return a.index - b.index;
     });
 
-    const winner = matches[0];
-    const ruleId = String(winner.rule?.id ?? `rule_${winner.index + 1}`);
-    return normalizeDecision(winner.rule?.decision, {
-      ruleId,
+    const winner = matchedCandidates[0];
+    const decision = normalizeDecision(winner.decision, {
+      ruleId: winner.ruleId,
       score: winner.score
     });
+
+    return {
+      decision,
+      meta: buildDecisionMeta({
+        candidates,
+        selectedRuleId: winner.ruleId,
+        selectedScore: winner.score
+      })
+    };
   }
 
-  return normalizeDecision(rules?.default_decision ?? DEFAULT_DECISION, {
+  const decision = normalizeDecision(rules?.default_decision ?? DEFAULT_DECISION, {
     ruleId: "default",
     score: Number.isFinite(rules?.default_decision?.weight) ? Number(rules.default_decision.weight) : 0
   });
+
+  return {
+    decision,
+    meta: buildDecisionMeta({
+      candidates,
+      selectedRuleId: "default",
+      selectedScore: decision.score
+    })
+  };
 }
 
 function runRunner(templatePath) {
@@ -241,6 +287,7 @@ function executeAction(decision, state, runId, causedByEventId) {
     if (!nextStep) {
       appendHistoryEntry({
         event_id: randomUUID(),
+        event_version: EVENT_VERSION_CURRENT,
         run_id: runId,
         correlation_id: runId,
         caused_by: causedByEventId ?? null,
@@ -255,6 +302,7 @@ function executeAction(decision, state, runId, causedByEventId) {
     startedEventId = randomUUID();
     appendHistoryEntry({
       event_id: startedEventId,
+      event_version: EVENT_VERSION_CURRENT,
       run_id: runId,
       correlation_id: runId,
       caused_by: causedByEventId ?? null,
@@ -277,6 +325,7 @@ function executeAction(decision, state, runId, causedByEventId) {
 
     appendHistoryEntry({
       event_id: randomUUID(),
+      event_version: EVENT_VERSION_CURRENT,
       run_id: runId,
       correlation_id: runId,
       caused_by: startedEventId,
@@ -288,6 +337,7 @@ function executeAction(decision, state, runId, causedByEventId) {
   } catch (error) {
     appendHistoryEntry({
       event_id: randomUUID(),
+      event_version: EVENT_VERSION_CURRENT,
       run_id: runId,
       correlation_id: runId,
       caused_by: startedEventId ?? causedByEventId ?? null,
@@ -311,7 +361,8 @@ export function runOrchestrator() {
 
   const newMode = evaluateMode(state, rules);
   const stateForDecision = { ...state, modo: newMode };
-  const decision = decideNextStep(stateForDecision, rules);
+  const decisionResult = decideNextStepWithMeta(stateForDecision, rules);
+  const decision = decisionResult.decision;
   const nextStep = getPrimaryAction(decision);
   const timestamp = new Date().toISOString();
 
@@ -327,13 +378,17 @@ export function runOrchestrator() {
   const decisionEventId = randomUUID();
   appendHistoryEntry({
     event_id: decisionEventId,
+    event_version: EVENT_VERSION_CURRENT,
     run_id: runId,
     correlation_id: runId,
     caused_by: null,
     event_type: "decision.made",
     timestamp,
     source: "orchestrator",
-    payload: { decision },
+    payload: {
+      decision,
+      decision_meta: decisionResult.meta
+    },
     state_snapshot: updatedState
   });
 

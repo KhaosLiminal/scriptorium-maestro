@@ -9,6 +9,7 @@ import {
 } from "../tools/history_integrity_check.mjs";
 
 const validDecision = {
+  event_version: 1,
   event_id: "evt-1",
   run_id: "run-1",
   correlation_id: "run-1",
@@ -21,12 +22,17 @@ const validDecision = {
       actions: ["resolver_media"],
       priority: "media_missing",
       reasoning: "faltante > 0"
+    },
+    decision_meta: {
+      selected_rule: "media_faltante",
+      discarded_rules: []
     }
   },
   state_snapshot: { modo: "produccion_limitada" }
 };
 
 const validAction = {
+  event_version: 1,
   event_id: "evt-2",
   run_id: "run-1",
   correlation_id: "run-1",

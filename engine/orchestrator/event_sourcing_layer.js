@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import {
+  EVENT_VERSION_CURRENT,
   HISTORY_LOG_PATH,
   SNAPSHOT_PATH,
   STATE_PATH,
@@ -14,6 +15,10 @@ function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
 export function parseHistoryText(text) {
   const lines = String(text ?? "").split(/\r?\n/);
   const events = [];
@@ -23,13 +28,36 @@ export function parseHistoryText(text) {
     if (!line) continue;
 
     try {
-      events.push(JSON.parse(line));
+      events.push(upcastHistoryEvent(JSON.parse(line), i));
     } catch (error) {
       throw new Error(`history.log invalido en linea ${i + 1}: ${error.message}`);
     }
   }
 
   return events;
+}
+
+export function upcastHistoryEvent(rawEvent, index = 0) {
+  if (!isObject(rawEvent)) return rawEvent;
+
+  const runId = isNonEmptyString(rawEvent.run_id) ? rawEvent.run_id : `legacy-run-${index + 1}`;
+  const correlationId = isNonEmptyString(rawEvent.correlation_id) ? rawEvent.correlation_id : runId;
+  const eventVersion = Number.isInteger(rawEvent.event_version) && rawEvent.event_version >= 1
+    ? rawEvent.event_version
+    : 1;
+  const causedBy = Object.prototype.hasOwnProperty.call(rawEvent, "caused_by")
+    ? rawEvent.caused_by
+    : rawEvent.event_type === "decision.made"
+      ? null
+      : null;
+
+  return {
+    ...rawEvent,
+    event_version: eventVersion,
+    run_id: runId,
+    correlation_id: correlationId,
+    caused_by: causedBy
+  };
 }
 
 export function loadHistoryEvents(filePath = HISTORY_LOG_PATH) {
@@ -142,6 +170,7 @@ export function maybeWriteSnapshot({
 
   const lastEvent = historyEvents[historyEvents.length - 1] ?? null;
   const snapshot = {
+    event_version: EVENT_VERSION_CURRENT,
     snapshot_version: 1,
     generated_at: new Date().toISOString(),
     event_count: historyEvents.length,
