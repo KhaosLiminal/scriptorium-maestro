@@ -369,7 +369,7 @@ export function runOrchestrator() {
   const updatedState = {
     ...state,
     modo: newMode,
-    proximo_paso_sugerido: nextStep,
+    proximo_paso_sugerido: nextStep ?? null,
     decision_actual: decision,
     timestamp_orchestrator: timestamp
   };
