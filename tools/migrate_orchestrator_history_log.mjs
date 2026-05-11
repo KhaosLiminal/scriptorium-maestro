@@ -82,6 +82,9 @@ function normalizeLegacyEntry(entry, index) {
 
   if (entry?.state_snapshot !== undefined) {
     normalized.state_snapshot = entry.state_snapshot;
+  } else if (eventType === "decision.made") {
+    normalized.state_snapshot = { migrated_without_state_snapshot: true };
+    normalized.payload.migration_warning = "decision.made sin state_snapshot original";
   }
 
   return normalized;
@@ -90,7 +93,8 @@ function normalizeLegacyEntry(entry, index) {
 function enrichCausality(events) {
   const enrichedEvents = [];
   const lastEventByCorrelation = new Map();
-  let enrichedCount = 0;
+  let correlationEnrichedCount = 0;
+  let causedByEnrichedCount = 0;
   let versionEnrichedCount = 0;
 
   for (let i = 0; i < events.length; i += 1) {
@@ -104,7 +108,7 @@ function enrichCausality(events) {
         ? event.run_id
         : `corr-${i + 1}`;
 
-    if (!isNonEmptyString(event?.correlation_id)) enrichedCount += 1;
+    if (!isNonEmptyString(event?.correlation_id)) correlationEnrichedCount += 1;
 
     let causedBy = event?.caused_by;
     if (causedBy === undefined || (causedBy !== null && !isNonEmptyString(causedBy))) {
@@ -113,7 +117,7 @@ function enrichCausality(events) {
       } else {
         causedBy = lastEventByCorrelation.get(correlationId) ?? null;
       }
-      enrichedCount += 1;
+      causedByEnrichedCount += 1;
     }
 
     const enriched = {
@@ -130,7 +134,12 @@ function enrichCausality(events) {
     }
   }
 
-  return { events: enrichedEvents, enrichedCount, versionEnrichedCount };
+  return {
+    events: enrichedEvents,
+    correlationEnrichedCount,
+    causedByEnrichedCount,
+    versionEnrichedCount
+  };
 }
 
 export function migrateHistoryLines(lines) {
@@ -139,6 +148,8 @@ export function migrateHistoryLines(lines) {
     total: 0,
     normalized_kept: 0,
     legacy_converted: 0,
+    correlation_enriched: 0,
+    caused_by_enriched: 0,
     causal_enriched: 0,
     version_enriched: 0
   };
@@ -166,7 +177,9 @@ export function migrateHistoryLines(lines) {
   }
 
   const causality = enrichCausality(migratedRaw);
-  stats.causal_enriched = causality.enrichedCount;
+  stats.correlation_enriched = causality.correlationEnrichedCount;
+  stats.caused_by_enriched = causality.causedByEnrichedCount;
+  stats.causal_enriched = causality.correlationEnrichedCount + causality.causedByEnrichedCount;
   stats.version_enriched = causality.versionEnrichedCount;
 
   return { migrated: causality.events, stats };
@@ -250,6 +263,8 @@ function runCli() {
   console.log("Total entries:", result.stats.total);
   console.log("Normalized kept:", result.stats.normalized_kept);
   console.log("Legacy converted:", result.stats.legacy_converted);
+  console.log("Correlation enriched:", result.stats.correlation_enriched);
+  console.log("Caused-by enriched:", result.stats.caused_by_enriched);
   console.log("Causal enriched:", result.stats.causal_enriched);
   console.log("Version enriched:", result.stats.version_enriched);
   console.log("Changed:", result.changed ? "yes" : "no");

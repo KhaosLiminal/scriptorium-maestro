@@ -47,9 +47,7 @@ export function upcastHistoryEvent(rawEvent, index = 0) {
     : 1;
   const causedBy = Object.prototype.hasOwnProperty.call(rawEvent, "caused_by")
     ? rawEvent.caused_by
-    : rawEvent.event_type === "decision.made"
-      ? null
-      : null;
+    : null;
 
   return {
     ...rawEvent,
@@ -70,7 +68,12 @@ function applyEventToState(currentState, event) {
 
   if (event.event_type === "decision.made") {
     if (isObject(event.state_snapshot)) {
-      return structuredClone(event.state_snapshot);
+      try {
+        validateState(event.state_snapshot);
+        return structuredClone(event.state_snapshot);
+      } catch {
+        // fallback to incremental projection when snapshot is legacy/incomplete
+      }
     }
 
     const decision = event?.payload?.decision;
@@ -86,10 +89,17 @@ function applyEventToState(currentState, event) {
   }
 
   if (event.event_type === "observation.recorded") {
+    if (isObject(event.state_snapshot)) {
+      return structuredClone(event.state_snapshot);
+    }
+
     return {
       ...currentState,
       last_event: event?.payload?.event ?? currentState?.last_event ?? "unknown",
-      timestamp_observer: event.timestamp
+      timestamp_observer: event.timestamp,
+      estado_media: isObject(event?.payload?.estado_media)
+        ? event.payload.estado_media
+        : currentState?.estado_media
     };
   }
 

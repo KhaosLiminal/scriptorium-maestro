@@ -249,11 +249,15 @@ export function decideNextStepWithMeta(state, rules) {
   };
 }
 
-function runRunner(templatePath) {
+function runRunner(templatePath, envExtra = {}) {
   const runnerPath = path.join(PROJECT_ROOT, "engine", "runner", "index.js");
   execFileSync(process.execPath, [runnerPath, templatePath], {
     stdio: "inherit",
-    cwd: PROJECT_ROOT
+    cwd: PROJECT_ROOT,
+    env: {
+      ...process.env,
+      ...envExtra
+    }
   });
 }
 
@@ -314,7 +318,11 @@ function executeAction(decision, state, runId, causedByEventId) {
 
     if (nextStep === "generar_pack_preview") {
       const templatePath = resolveTemplatePath(state, PROJECT_ROOT);
-      runRunner(templatePath);
+      runRunner(templatePath, {
+        ORCHESTRATOR_RUN_ID: runId,
+        ORCHESTRATOR_CORRELATION_ID: runId,
+        ORCHESTRATOR_CAUSED_BY: startedEventId ?? causedByEventId ?? ""
+      });
     } else if (nextStep === "continuar_ciclope") {
       console.log("Ciclope pendiente; se omite runner");
     } else if (nextStep === "resolver_media") {
@@ -335,20 +343,25 @@ function executeAction(decision, state, runId, causedByEventId) {
       payload: { action: nextStep }
     });
   } catch (error) {
-    appendHistoryEntry({
-      event_id: randomUUID(),
-      event_version: EVENT_VERSION_CURRENT,
-      run_id: runId,
-      correlation_id: runId,
-      caused_by: startedEventId ?? causedByEventId ?? null,
-      event_type: "action.failed",
-      source: "orchestrator",
-      timestamp: new Date().toISOString(),
-      payload: {
-        action: nextStep,
-        error_message: error instanceof Error ? error.message : String(error)
-      }
-    });
+    try {
+      appendHistoryEntry({
+        event_id: randomUUID(),
+        event_version: EVENT_VERSION_CURRENT,
+        run_id: runId,
+        correlation_id: runId,
+        caused_by: startedEventId ?? causedByEventId ?? null,
+        event_type: "action.failed",
+        source: "orchestrator",
+        timestamp: new Date().toISOString(),
+        payload: {
+          action: nextStep,
+          error_message: error instanceof Error ? error.message : String(error)
+        }
+      });
+    } catch (historyError) {
+      console.error("Error registrando action.failed en history.log");
+      console.error(historyError);
+    }
     console.error("Error ejecutando accion del orchestrator");
     console.error(error);
   }
@@ -369,7 +382,7 @@ export function runOrchestrator() {
   const updatedState = {
     ...state,
     modo: newMode,
-    proximo_paso_sugerido: nextStep ?? null,
+    proximo_paso_sugerido: nextStep ?? "sin_accion",
     decision_actual: decision,
     timestamp_orchestrator: timestamp
   };
@@ -413,7 +426,7 @@ export function runOrchestrator() {
     console.warn("Snapshot warning:", error instanceof Error ? error.message : String(error));
   }
 
-  return updatedState;
+  return loadState();
 }
 
 const __filename = fileURLToPath(import.meta.url);

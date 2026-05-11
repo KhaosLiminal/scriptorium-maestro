@@ -24,14 +24,15 @@ La memoria historica se registra en `runtime/orchestrator/history.log` como JSON
 
 - `Orchestrator -> Runner -> Runtime`
 - `Observer -> Runtime`
-- `Orchestrator -> history.log` (escritor unico)
+- `Orchestrator -> history.log` (decision/action events)
+- `Observer -> history.log` (`observation.recorded` solamente)
 
 ## Flujo prohibido
 
 - `Observer -> Orchestrator`
-- `Observer -> history.log`
+- `Observer -> decision.made | action.*`
 
-El observer no decide acciones; solo registra hechos.
+El observer no decide acciones; solo registra hechos observados.
 
 ## Ejecucion
 
@@ -97,7 +98,8 @@ npm run test:event-sourcing-consistency
 npm run test:event-sourcing-layer
 ```
 
-Garantiza `state.json === fold(history.log)` y valida la capa de reconstruccion.
+`test:event-sourcing-layer` valida la equivalencia con fixtures en CI.
+`test:event-sourcing-consistency` valida equivalencia contra runtime local cuando existe historia.
 
 ## Proyecciones multiples
 
