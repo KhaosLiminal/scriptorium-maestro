@@ -185,6 +185,13 @@ Lote 21 migrado:
 - nuevos comandos `project:history`, `test:history-projections`
 - mapa de continuidad en `docs/MAPA_CONTINUIDAD_ORCHESTRATOR_2026-04-26.md`
 
+Lote 22 migrado:
+
+- ingesta de conocimiento externo desde Cíclope HF con `tools/sync_ciclope_dataset.mjs`
+- fusion de corpus Cíclope + export Notion en `tools/build_knowledge_fusion_pack.mjs`
+- comandos operativos: `knowledge:sync:ciclope`, `knowledge:fuse`, `knowledge:bootstrap`
+- salida runtime para produccion textual: `runtime/knowledge/fusion/fusion_pack.json` y `fusion_prompt.md`
+
 Pendiente:
 
 - hidratación real de media aún ausente:
@@ -195,5 +202,11 @@ Pendiente:
   `audio/ascension.wav`, `audio/silencio_arconte_acto2.wav`,
   `audio/score_madonna_hibrida.wav`, `audio/vo_madonna_hibrida.wav`, `audio/__track.wav`
 - automatizar sustitución de placeholders cuando aparezca media final real
-- integración LLM/Notion/publicación
+- integración LLM/publicación sobre `fusion_prompt.md`
 - política final para assets y binarios pesados
+
+## Arranque de conocimiento hibrido
+
+1. Exporta Notion en markdown hacia `integrations/notion_export/kraken_liminal_lab/`.
+2. Ejecuta `npm run knowledge:bootstrap`.
+3. Usa `runtime/knowledge/fusion/fusion_prompt.md` como base de generacion.
