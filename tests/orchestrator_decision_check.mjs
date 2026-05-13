@@ -185,6 +185,16 @@ assert.deepEqual(
 const resolvedTemplatePath = resolveTemplatePath(baseState);
 assert.equal(resolvedTemplatePath, "pipelines/reels/madonna_hibrida/madonna_hibrida_template.arc");
 assert.equal(validateState(baseState), baseState);
+
+const zeroMediaState = {
+  ...baseState,
+  estado_media: { presente: 0, faltante: 0, placeholder: 0, replacementHints: 0 }
+};
+assert.equal(
+  validateState(zeroMediaState),
+  zeroMediaState,
+  "estado_media con presente=0 y faltante=0 debe ser estado valido (observaciones sin media)"
+);
 assert.throws(
   () => validateState({ ...baseState, modo: "", ciclope: null }),
   /Estado invalido/

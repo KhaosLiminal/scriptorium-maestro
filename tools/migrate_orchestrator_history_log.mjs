@@ -96,17 +96,24 @@ function enrichCausality(events) {
   let correlationEnrichedCount = 0;
   let causedByEnrichedCount = 0;
   let versionEnrichedCount = 0;
+  let runIdEnrichedCount = 0;
 
   for (let i = 0; i < events.length; i += 1) {
     const event = events[i];
     const eventVersion = Number.isInteger(event?.event_version) && event.event_version >= 1 ? event.event_version : 1;
     if (!Number.isInteger(event?.event_version) || event.event_version < 1) versionEnrichedCount += 1;
 
+    const runId = isNonEmptyString(event?.run_id)
+      ? event.run_id
+      : isNonEmptyString(event?.correlation_id)
+        ? event.correlation_id
+        : `legacy-run-${i + 1}`;
+
+    if (!isNonEmptyString(event?.run_id)) runIdEnrichedCount += 1;
+
     const correlationId = isNonEmptyString(event?.correlation_id)
       ? event.correlation_id
-      : isNonEmptyString(event?.run_id)
-        ? event.run_id
-        : `corr-${i + 1}`;
+      : runId;
 
     if (!isNonEmptyString(event?.correlation_id)) correlationEnrichedCount += 1;
 
@@ -123,6 +130,7 @@ function enrichCausality(events) {
     const enriched = {
       ...event,
       event_version: eventVersion,
+      run_id: runId,
       correlation_id: correlationId,
       caused_by: causedBy
     };
@@ -138,7 +146,8 @@ function enrichCausality(events) {
     events: enrichedEvents,
     correlationEnrichedCount,
     causedByEnrichedCount,
-    versionEnrichedCount
+    versionEnrichedCount,
+    runIdEnrichedCount
   };
 }
 
@@ -151,7 +160,8 @@ export function migrateHistoryLines(lines) {
     correlation_enriched: 0,
     caused_by_enriched: 0,
     causal_enriched: 0,
-    version_enriched: 0
+    version_enriched: 0,
+    run_id_enriched: 0
   };
 
   for (const [index, line] of lines.entries()) {
@@ -181,6 +191,7 @@ export function migrateHistoryLines(lines) {
   stats.caused_by_enriched = causality.causedByEnrichedCount;
   stats.causal_enriched = causality.correlationEnrichedCount + causality.causedByEnrichedCount;
   stats.version_enriched = causality.versionEnrichedCount;
+  stats.run_id_enriched = causality.runIdEnrichedCount;
 
   return { migrated: causality.events, stats };
 }
@@ -267,6 +278,7 @@ function runCli() {
   console.log("Caused-by enriched:", result.stats.caused_by_enriched);
   console.log("Causal enriched:", result.stats.causal_enriched);
   console.log("Version enriched:", result.stats.version_enriched);
+  console.log("Run id enriched:", result.stats.run_id_enriched);
   console.log("Changed:", result.changed ? "yes" : "no");
   console.log("Dry run:", args.dryRun ? "yes" : "no");
   if (result.backupPath) {
