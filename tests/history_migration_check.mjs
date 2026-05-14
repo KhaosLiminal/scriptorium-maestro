@@ -71,4 +71,41 @@ const dryRunResult = migrateHistoryFile({ filePath, dryRun: true, backup: true }
 assert.equal(dryRunResult.changed, false);
 assert.equal(dryRunResult.stats.total, 2);
 
+// Partially normalized events (passing isNormalizedEvent but missing run_id)
+// should be enriched with a run_id derived from correlation_id or a legacy fallback
+// so that the history integrity check accepts them.
+const partiallyNormalizedNoRunId = {
+  event_id: "evt-no-run",
+  event_type: "observation.recorded",
+  source: "observer",
+  timestamp: "2026-04-20T11:00:00.000Z",
+  correlation_id: "corr-from-observer",
+  payload: { event: "runner_execution" }
+};
+const partiallyNormalizedNoIds = {
+  event_id: "evt-no-ids",
+  event_type: "decision.made",
+  source: "orchestrator",
+  timestamp: "2026-04-20T11:05:00.000Z",
+  payload: {
+    decision: {
+      actions: ["resolver_media"],
+      priority: "media_missing",
+      reasoning: "test partial"
+    }
+  }
+};
+
+const partialMigration = migrateHistoryLines([
+  JSON.stringify(partiallyNormalizedNoRunId),
+  JSON.stringify(partiallyNormalizedNoIds)
+]);
+assert.equal(partialMigration.stats.total, 2);
+assert.equal(partialMigration.stats.normalized_kept, 2);
+assert.equal(partialMigration.stats.run_id_enriched, 2);
+assert.equal(partialMigration.migrated[0].run_id, "corr-from-observer");
+assert.equal(partialMigration.migrated[0].correlation_id, "corr-from-observer");
+assert.equal(partialMigration.migrated[1].run_id, "legacy-run-2");
+assert.equal(partialMigration.migrated[1].correlation_id, "legacy-run-2");
+
 console.log("History migration OK");

@@ -149,10 +149,6 @@ export function validateState(state) {
     if (!isNonNegativeNumber(replacementHints)) {
       errors.push("estado_media.replacementHints requerido (numero >= 0)");
     }
-
-    if (isNonNegativeNumber(presente) && isNonNegativeNumber(faltante) && presente + faltante <= 0) {
-      errors.push("estado_media inconsistente: presente + faltante debe ser > 0");
-    }
   }
 
   if (state.saturacion !== undefined) {
