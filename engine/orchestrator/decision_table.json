@@ -1,6 +1,67 @@
 {
-  "regla_bloqueo": {
-    "condicion": "ciclope.capas_pendientes > 0 AND modo === produccion",
-    "accion": "produccion_limitada"
+  "mode_rules": [
+    {
+      "id": "bloqueo_ciclope_en_produccion",
+      "when": {
+        "all": [
+          { "path": "modo", "op": "eq", "value": "produccion" },
+          { "path": "ciclope.capas_pendientes.length", "op": "gt", "value": 0 }
+        ]
+      },
+      "set_modo": "produccion_limitada"
+    }
+  ],
+  "decision_rules": [
+    {
+      "id": "media_faltante",
+      "weight": 0.95,
+      "when": {
+        "all": [
+          { "path": "estado_media.faltante", "op": "gt", "value": 0 }
+        ]
+      },
+      "decision": {
+        "actions": ["resolver_media"],
+        "priority": "media_missing",
+        "reasoning": "faltante > 0"
+      }
+    },
+    {
+      "id": "preview_con_capas_pendientes",
+      "weight": 0.7,
+      "when": {
+        "all": [
+          { "path": "estado_media.faltante", "op": "eq", "value": 0 },
+          { "path": "ciclope.capas_pendientes.length", "op": "gt", "value": 0 }
+        ]
+      },
+      "decision": {
+        "actions": ["generar_pack_preview"],
+        "priority": "media_ready",
+        "reasoning": "no faltante + ciclope con capas pendientes"
+      }
+    },
+    {
+      "id": "saturacion_alta",
+      "weight": 0.6,
+      "when": {
+        "all": [
+          { "path": "estado_media.faltante", "op": "eq", "value": 0 },
+          { "path": "ciclope.capas_pendientes.length", "op": "eq", "value": 0 },
+          { "path": "saturacion", "op": "gt", "value": 0.7 }
+        ]
+      },
+      "decision": {
+        "actions": ["expandir_templates"],
+        "priority": "saturation_high",
+        "reasoning": "saturacion > 0.7"
+      }
+    }
+  ],
+  "default_decision": {
+    "actions": ["generar_pack_preview"],
+    "priority": "steady_flow",
+    "reasoning": "flujo estable: continuar pack preview",
+    "weight": 0.2
   }
 }

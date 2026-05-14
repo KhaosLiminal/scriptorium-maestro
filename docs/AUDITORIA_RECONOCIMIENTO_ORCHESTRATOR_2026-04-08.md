@@ -52,4 +52,3 @@ Fuentes contrastadas:
 ## Nota sobre archivos de contexto
 
 Se encontro `codex_SCRIPTORIUM.txt` en `docs/auditorias/codex_SCRIPTORIUM.txt` y fue considerado como memoria operativa del proceso.
-

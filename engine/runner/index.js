@@ -600,6 +600,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   observe({
     type: "runner_execution",
     payload: {
+      run_id: process.env.ORCHESTRATOR_RUN_ID ?? null,
+      correlation_id: process.env.ORCHESTRATOR_CORRELATION_ID ?? null,
+      caused_by: process.env.ORCHESTRATOR_CAUSED_BY ?? null,
       mediaPresent: result.context.media.present.length,
       mediaMissing: result.context.media.missing.length,
       mediaPlaceholder: result.context.media.placeholder.length,

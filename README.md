@@ -143,6 +143,55 @@ Lote 15 migrado:
 - nuevo test `test:runtime-guard`
 - `health:check` endurecido para exigir guard + pruebas criticas
 - workflow CI actualizado para fallar si se versiona output efimero en `runtime/`
+
+Lote 16 migrado:
+
+- validacion de estado en `engine/orchestrator/state_schema.js` (falla rapido ante estado invalido)
+- Decision Engine 2.0: `decideNextStep` ahora devuelve `actions`, `priority`, `reasoning`
+- memoria historica inicial en `runtime/orchestrator/history.log` para decisiones operativas
+
+Lote 17 migrado:
+
+- `decision_table.json` convertido a motor declarativo real (`mode_rules`, `decision_rules`, `default_decision`)
+- Orchestrator evalua reglas externas en lugar de `if/else` para decidir acciones
+- `history.log` formalizado como stream de eventos JSONL con escritor unico (`orchestrator`)
+- `state_schema` ampliado con invariantes de coherencia (`template_actual/template_path`, `decision_actual`, rangos y tipos)
+
+Lote 18 migrado:
+
+- migrador de `history.log` legacy a eventos normalizados en `tools/migrate_orchestrator_history_log.mjs`
+- comando `npm run migrate:history` con soporte `--dry-run` y backup automatico
+- prueba dedicada `tests/history_migration_check.mjs`
+
+Lote 19 migrado:
+
+- verificacion de integridad de eventos historicos en `tools/history_integrity_check.mjs`
+- comando `npm run test:history-integrity` integrado al `health:check` y a CI
+- cobertura de pruebas para integridad en `tests/history_integrity_check.mjs`
+
+Lote 20 migrado:
+
+- capa `event_sourcing_layer.js` con `rebuildStateFromHistory` y chequeo `state === fold(history)`
+- nuevos comandos `test:event-sourcing-layer` y `test:event-sourcing-consistency` (integrados en CI y `health:check`)
+- causalidad explicita en eventos (`correlation_id`, `caused_by`) desde orchestrator
+- decision engine con scoring por `weight` + traza de regla ganadora (`rule_id`, `score`)
+- estrategia de snapshot periodico (`runtime/orchestrator/snapshot.json`) via `maybeWriteSnapshot`
+
+Lote 21 migrado:
+
+- versionado de eventos (`event_version`) + upcasting en lectura de historia
+- `decision_meta` en eventos `decision.made` (regla seleccionada, descartadas, score)
+- proyecciones multiples desde `history.log` (`analytics`, `debug`, `performance`)
+- nuevos comandos `project:history`, `test:history-projections`
+- mapa de continuidad en `docs/MAPA_CONTINUIDAD_ORCHESTRATOR_2026-04-26.md`
+
+Lote 22 migrado:
+
+- ingesta de conocimiento externo desde Cíclope HF con `tools/sync_ciclope_dataset.mjs`
+- fusion de corpus Cíclope + export Notion en `tools/build_knowledge_fusion_pack.mjs`
+- comandos operativos: `knowledge:sync:ciclope`, `knowledge:fuse`, `knowledge:bootstrap`
+- salida runtime para produccion textual: `runtime/knowledge/fusion/fusion_pack.json` y `fusion_prompt.md`
+
 Pendiente:
 
 - hidratación real de media aún ausente:
@@ -153,10 +202,11 @@ Pendiente:
   `audio/ascension.wav`, `audio/silencio_arconte_acto2.wav`,
   `audio/score_madonna_hibrida.wav`, `audio/vo_madonna_hibrida.wav`, `audio/__track.wav`
 - automatizar sustitución de placeholders cuando aparezca media final real
-- integración LLM/Notion/publicación
+- integración LLM/publicación sobre `fusion_prompt.md`
 - política final para assets y binarios pesados
 
+## Arranque de conocimiento hibrido
 
-
-
-
+1. Exporta Notion en markdown hacia `integrations/notion_export/kraken_liminal_lab/`.
+2. Ejecuta `npm run knowledge:bootstrap`.
+3. Usa `runtime/knowledge/fusion/fusion_prompt.md` como base de generacion.
