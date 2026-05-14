@@ -1,0 +1,45 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Runtime (outputs are never source of truth)
+runtime/**
+!runtime/
+!runtime/cache/
+!runtime/cache/.gitkeep
+!runtime/outputs/
+!runtime/outputs/.gitkeep
+!runtime/temp/
+!runtime/temp/.gitkeep
+!runtime/previews/
+!runtime/previews/.gitkeep
+!runtime/orchestrator/
+!runtime/orchestrator/.gitkeep
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*.log
+
+# Generated packs and media exports
+*.capcut.json
+*.zip
+
+# Keep source assets curated separately if needed
+assets/packs/**
+!assets/packs/.gitkeep
